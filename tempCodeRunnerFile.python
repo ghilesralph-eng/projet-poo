@@ -1,0 +1,16 @@
+
+#essai
+import pygame 
+pygame.init()
+#creation de l'ecran d'affichage 
+ecran = pygame.display.set_mode([800, 600])
+continuer = True 
+while continuer :
+    for event in pygame.event.get():
+        if event.type == pygame.quit:
+            continuer = False
+    ecran.fill((15,15,15))
+    pygame.draw.rect(ecran, (255,255,255),(100,100,100,100))
+    pygame.display.flip()
+
+pygame.quit()
