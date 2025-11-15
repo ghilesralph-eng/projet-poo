@@ -29,19 +29,13 @@ LEFT_W = int(W * 0.58)
 RIGHT  = Rect(LEFT_W, 0, W - LEFT_W, H)
 PADDING = 24
 
-# Cartes
-CARD_W, CARD_H = 90, 90
-cards_top  = int(H * 0.46)
-content_w  = RIGHT.width - 2 * PADDING
-GAP = (content_w - 3 * CARD_W) // 2
-CARD_RECTS = [
-    Rect(RIGHT.x + PADDING + i * (CARD_W + GAP), cards_top, CARD_W, CARD_H)
-    for i in range(3)
-]
+CARD_W, CARD_H = 90, 90   # taille des cartes
 
-# « Redraw with dice »
-REDRAW_BOX = Rect(RIGHT.right - PADDING - 180, int(H * 0.22), 180, 96)
-DICE_BTN   = Rect(REDRAW_BOX.centerx - 40, REDRAW_BOX.bottom - 40, 80, 32)
+# Ces rectangles seront recalculés à chaque frame par layout_right()
+REDRAW_BOX = None
+DICE_BTN   = None
+CARD_RECTS = []
+CHOOSE_TITLE_Y = 0
 
 # -------------------- DONNÉES D’AFFICHAGE --------------------
 inventory = {"Steps\u200b": 76, "Coins": 0, "Gems": 2, "Keys": 1, "Dice": 1}
@@ -61,15 +55,10 @@ cells_rect = [
 ]
 placed = [[None for _ in range(GRID_COLS)] for _ in range(GRID_ROWS)]
 
-# Départ en BAS MILIEU
-cur_c, cur_r = 2, 8
-
-# Sélection carte côté droit
-focused = 0
+cur_c, cur_r = 2, 8        # position actuelle
+focused = 0                # carte sélectionnée
 card_hover = [0.0, 0.0, 0.0]
-
-# Droit de déplacement ? (une case max après chaque placement)
-can_move = False
+can_move = False           # peut bouger 1 fois après avoir choisi une chambre
 
 # -------------------- FOND GRADIENT GAUCHE --------------------
 LEFT_BG = pygame.Surface((LEFT_W, H)).convert()
@@ -79,6 +68,49 @@ for y in range(H):
     g = int(22 + 8 * (1 - t))
     b = int(28 + 6 * (1 - t))
     pygame.draw.line(LEFT_BG, (r, g, b), (0, y), (LEFT_W, y))
+
+# -------------------- LAYOUT PANNEAU DROIT --------------------
+def layout_right(panel):
+    """
+    Met en page proprement tout le panneau droit.
+    """
+    global REDRAW_BOX, DICE_BTN, CARD_RECTS, CHOOSE_TITLE_Y
+
+    # ---------- INVENTAIRE ----------
+    inv_rect = Rect(panel.x + PADDING,
+                    panel.y + PADDING,
+                    panel.width - 2 * PADDING,
+                    125)
+
+    # ---------- REDRAW : ESPACEMENT FIXE ----------
+    redraw_top = inv_rect.bottom + 30  # espace confortable
+    REDRAW_BOX = Rect(inv_rect.x,
+                      redraw_top,
+                      inv_rect.width,
+                      110)             # un peu plus haut
+
+    # ---------- BOUTON "ROLL" BIEN CENTRÉ ----------
+    DICE_BTN = Rect(
+        REDRAW_BOX.centerx - 45,
+        REDRAW_BOX.centery + 10,       # bouton placé au centre bas du bloc
+        90, 36
+    )
+
+    # ---------- TITRE "CHOOSE A ROOM" ----------
+    CHOOSE_TITLE_Y = REDRAW_BOX.bottom + 35
+
+    # ---------- CARTES ----------
+    cards_top = CHOOSE_TITLE_Y + 50
+    content_w = inv_rect.width
+    gap = (content_w - 3 * CARD_W) // 2
+
+    CARD_RECTS = [
+        Rect(inv_rect.x + i * (CARD_W + gap), cards_top, CARD_W, CARD_H)
+        for i in range(3)
+    ]
+
+    return inv_rect
+
 
 # -------------------- DESSIN --------------------
 def draw_left():
@@ -128,36 +160,29 @@ def draw_right_panel_bg():
     pygame.draw.rect(screen, (230, 232, 238), panel, 1, border_radius=22)
     return panel
 
-def draw_inventory(panel):
-    inv_rect = Rect(panel.x + PADDING,
-                    panel.y + PADDING,
-                    panel.width - 2 * PADDING,
-                    110)
-    pygame.draw.rect(screen, WHITE, inv_rect, border_radius=14)
-    pygame.draw.rect(screen, BORDER, inv_rect, 1, border_radius=14)
+def draw_inventory(inv_rect):
+    # Zone compacte en haut à droite
+    x = RIGHT.right - 140      # largeur du bloc compact
+    y = inv_rect.y - 10        # remonte un peu
 
-    screen.blit(title.render("Inventory", True, INK),
-                (inv_rect.x + 12, inv_rect.y + 8))
+    # Titre
+    screen.blit(
+        h3.render("Inventory", True, INK),
+        (x, y)
+    )
 
-    list_rect = inv_rect.inflate(-14, -36)
-    list_rect.y = inv_rect.y + 36
-    pygame.draw.rect(screen, (246, 248, 252), list_rect, border_radius=10)
-    pygame.draw.rect(screen, BORDER, list_rect, 1, border_radius=10)
+    y += 22  # descendre sous le titre
 
-    y = list_rect.y + 6
-    line_h = 22
+    # Affichage simple et petit
     for k, v in inventory.items():
-        row_rect = Rect(list_rect.x + 6, y, list_rect.width - 12, line_h)
-        pygame.draw.rect(screen, WHITE, row_rect, border_radius=8)
-        pygame.draw.rect(screen, (230, 232, 238), row_rect, 1, border_radius=8)
+        label = body.render(f"{k}:", True, MID)
+        val   = body.render(str(v), True, INK)
 
-        ks = body.render(k, True, MID)
-        vs = h3.render(str(v), True, INK)
-        screen.blit(ks, (row_rect.x + 8, row_rect.y + (line_h - ks.get_height()) // 2))
-        screen.blit(vs, (row_rect.right - 8 - vs.get_width(),
-                         row_rect.y + (line_h - vs.get_height()) // 2))
+        screen.blit(label, (x, y))
+        screen.blit(val,   (x + 80, y))  # valeur à droite
 
-        y += line_h + 4
+        y += 18  # espacement compact
+
 
 def draw_redraw():
     pygame.draw.rect(screen, WHITE, REDRAW_BOX, border_radius=16)
@@ -170,8 +195,8 @@ def draw_redraw():
     screen.blit(sub, (REDRAW_BOX.centerx - sub.get_width() // 2,
                       REDRAW_BOX.y + 40))
 
-    mouse_pos = pygame.mouse.get_pos()
-    hovered = DICE_BTN.collidepoint(mouse_pos)
+    mouse = pygame.mouse.get_pos()
+    hovered = DICE_BTN.collidepoint(mouse)
     btn_color = ACC if hovered else INK
 
     pygame.draw.rect(screen, WHITE, DICE_BTN, border_radius=8)
@@ -186,16 +211,16 @@ def draw_redraw():
         pygame.draw.circle(screen, btn_color, (cx + dx, cy + dy), 3)
 
 def draw_cards():
-    mouse_pos = pygame.mouse.get_pos()
+    mouse = pygame.mouse.get_pos()
 
     title_s = h2.render("Choose a room", True, INK)
     screen.blit(
         title_s,
-        (RIGHT.x + (RIGHT.width - title_s.get_width()) // 2, int(H * 0.34)),
+        (RIGHT.x + (RIGHT.width - title_s.get_width()) // 2, CHOOSE_TITLE_Y),
     )
 
     for i, base_rect in enumerate(CARD_RECTS):
-        hovered = base_rect.collidepoint(mouse_pos)
+        hovered = base_rect.collidepoint(mouse)
         target = 1.0 if hovered else 0.0
         card_hover[i] += (target - card_hover[i]) * 0.18
         scale = 1.0 + 0.06 * card_hover[i]
@@ -228,7 +253,8 @@ def draw_cards():
 def blit_all(panel):
     screen.fill(WHITE)
     draw_left()
-    draw_inventory(panel)
+    inv_rect = layout_right(panel)   # calcule positions propres
+    draw_inventory(inv_rect)
     draw_redraw()
     draw_cards()
     pygame.display.flip()
@@ -255,10 +281,8 @@ def main():
                 if e.key == pygame.K_ESCAPE:
                     running = False
                 elif e.key in (pygame.K_RETURN, pygame.K_SPACE):
-                    # Validation de la chambre actuelle
                     place_current_cell(focused)
-                    # Autorise un déplacement d'une case
-                    can_move = True
+                    can_move = True           # autorise 1 déplacement
                 elif e.key in (pygame.K_1, pygame.K_KP1):
                     focused = 0
                 elif e.key in (pygame.K_2, pygame.K_KP2):
@@ -270,12 +294,12 @@ def main():
                 for i, r in enumerate(CARD_RECTS):
                     if r.collidepoint(m):
                         focused = i
-                if DICE_BTN.collidepoint(m) and inventory["Dice"] > 0:
+                if DICE_BTN and DICE_BTN.collidepoint(m) and inventory["Dice"] > 0:
                     inventory["Dice"] -= 1  # placeholder
 
         keys = pygame.key.get_pressed()
 
-        # On ne bouge que si can_move est True, et UNE seule fois
+        # peut bouger UNE seule fois après choix de chambre
         if can_move and move_cool <= 0:
             moved = False
             old_c, old_r = cur_c, cur_r
@@ -295,13 +319,12 @@ def main():
 
             if moved and (cur_c != old_c or cur_r != old_r):
                 move_cool = 120
-                inventory[STEPS_KEY] = inventory.get(STEPS_KEY, 0) + 1  # placeholder
-                # On consomme le droit de déplacement : plus de mouvement
+                inventory[STEPS_KEY] = inventory.get(STEPS_KEY, 0) + 1
                 can_move = False
         elif move_cool > 0:
             move_cool -= dt
 
-        # Navigation cartes ← →
+        # navigation cartes avec flèches
         if sel_cool <= 0:
             if keys[pygame.K_LEFT]:
                 if focused > 0:
@@ -321,3 +344,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+#letsgoo
