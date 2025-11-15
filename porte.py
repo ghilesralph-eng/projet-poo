@@ -27,7 +27,7 @@ import math
 import pygame
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
-
+from inventory import Inventory
 # ==========================
 # Constantes & couleurs
 # ==========================
@@ -94,30 +94,6 @@ def text(surface, s, font, color, center=None, topleft=None):
 # ==========================
 # Données de Jeu
 # ==========================
-@dataclass
-class Inventory:
-    steps: int = 70
-    coins: int = 0
-    gems: int = 2
-    keys: int = 0
-    dice: int = 0
-    lockpick: bool = False  # ouvre niv 1 sans clé
-    rabbit_foot: bool = False  # boost loot (placeholder)
-    metal_detector: bool = False  # boost clés/pièces (placeholder)
-
-    def can_open(self, lock_level: int) -> bool:
-        if lock_level == 0: return True
-        if lock_level == 1: return self.keys > 0 or self.lockpick
-        if lock_level == 2: return self.keys > 0
-        return False
-
-    def spend_for_lock(self, lock_level: int):
-        if lock_level == 1:
-            if self.lockpick:
-                return  # gratuit si lockpick
-            self.keys -= 1
-        elif lock_level == 2:
-            self.keys -= 1
 
 @dataclass
 class RoomDef:
