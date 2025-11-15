@@ -7,7 +7,7 @@ class Consumables ():
             "coins": 0,
             "gems": 2,
             "keys": 0,
-            "dices": 0
+            "dice": 0
         }
     
     def use(self,name,n):
@@ -41,8 +41,8 @@ class Consumables ():
         
         return self.use("keys", n)
     
-    def use_dices(self,n):
-        return self.use("dices", n)
+    def use_dice(self):
+        return self.use("dice", 1)
         
     
     def add_loot (self , name , n):
@@ -71,8 +71,8 @@ class Consumables ():
     def add_keys(self, n):
         return self.add_loot("keys",n)
           
-    def add_dices(self, n):
-        return self.add_loot("dices",n)
+    def add_dice(self, n):
+        return self.add_loot("dice",n)
     
     def __str__(self):
         parts = [f"{key.capitalize()}: {val}" for key, val in self.data.items()]

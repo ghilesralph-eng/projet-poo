@@ -24,8 +24,8 @@ class Inventory():
     def use_keys(self,n=1):
         return self.consumables.use_keys(n)
     
-    def use_dices(self,n):
-        return self.consumables.use_dices(n)
+    def use_dice(self):
+        return self.consumables.use_dice()
     
 
     # add methods forwarding
@@ -41,8 +41,8 @@ class Inventory():
     def add_keys(self, n):
         return self.consumables.add_keys(n)
     
-    def add_dices(self, n):
-        return self.consumables.add_dices(n)
+    def add_dice(self, n):
+        return self.consumables.add_dice(n)
     
     # Permanants methods forwarding
     
