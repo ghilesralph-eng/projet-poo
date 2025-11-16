@@ -1,128 +1,137 @@
+# manor.py
+
 import random
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
-from room_def import RoomDef, ROOM_CATALOGUE  
+from typing import List, Optional, Tuple, Dict
 
-GRID_ROWS, GRID_COLS = 5, 9
+# Import your existing backend classes
+from player import Player
+from inventory.inventory import Inventory
+from inventory.consumables import Consumables
+from inventory.permanents import Permanents
+from rooms.room_data import RoomDef, ROOM_CATALOGUE 
 
-@dataclass
-class Room:
-    definition: RoomDef
-    placed_doors: Tuple[bool,bool,bool,bool]  # up,right,down,left
+# --- Constants based on the PDF ---
+GRID_ROWS = 5
+GRID_COLS = 9
+START_POS = (GRID_ROWS - 1, GRID_COLS // 2) # (4, 4) - Bottom-center
+GOAL_POS = (0, GRID_COLS // 2)             # (0, 4) - Top-center
+
+# Helper dictionary to map directions to (dr, dc) changes
+DIRECTIONS: Dict[str, Tuple[int, int]] = {
+    "up": (-1, 0),
+    "down": (1, 0),
+    "left": (0, -1),
+    "right": (0, 1)
+}
 
 class Manor:
+    """
+    Manages the game state, including the grid, the player, and the room deck.
+    """
+
     def __init__(self):
-        # None = vide; sinon Room
-        self.grid: List[List[Optional[Room]]] = [[None for _ in range(GRID_COLS)] for _ in range(GRID_ROWS)]
+        # Create the 5x9 grid, initially empty
+        self.grid: List[List[Optional[RoomDef]]] = [[None for _ in range(GRID_COLS)] for _ in range(GRID_ROWS)]
+        
+        # Create the player at the starting position
+        self.player = Player(start_row=START_POS[0], start_col=START_POS[1])
+        
+        # Create the "pioche" (deck) of available rooms
         self.deck: List[RoomDef] = []
-        self.reset_deck()
-        # Point de départ et arrivée
-        self.start = (GRID_ROWS-1, GRID_COLS//2)   # bas-centre
-        self.goal  = (0, GRID_COLS//2)             # haut-centre
-        # Place Entrance Hall & Antechamber
-        self.place_fixed()
+        self._build_deck()
+        
+        # Place the fixed start and end rooms
+        self._place_fixed_rooms()
 
-    def reset_deck(self):
-        # Construire la pioche : plusieurs exemplaires simples pour la démo
-        base = []
-        for rd in ROOM_CATALOGUE:
-            if rd.name in ("Entrance Hall","Antechamber"): continue
-            copies = 2 if rd.rarity == 0 else 1
-            base += [rd]*copies
-        self.deck = base.copy()
+    def _build_deck(self):
+        """
+        Populates the deck with all rooms from the catalogue,
+        except for the pre-placed rooms.
+        """
+        for room_def in ROOM_CATALOGUE:
+            # Don't add the fixed rooms to the deck
+            if room_def.name in ("Entrance Hall", "Antechamber"):
+                continue
+            
+            # Add multiple copies if specified (as per PDF example)
+            # For now, we'll just add one copy.
+            self.deck.append(room_def)
+        
+        # Shuffle the deck
+        random.shuffle(self.deck)
+        print(f"Deck built with {len(self.deck)} rooms.")
 
-    def place_fixed(self):
-        er, ec = self.start
-        gr, gc = self.goal
+    def _place_fixed_rooms(self):
+        """
+        Finds and places the 'Entrance Hall' and 'Antechamber' on the grid.
+        """
+        entrance_hall = next((r for r in ROOM_CATALOGUE if r.name == "Entrance Hall"), None)
+        antechamber = next((r for r in ROOM_CATALOGUE if r.name == "Antechamber"), None)
+        
+        if entrance_hall:
+            self.grid[START_POS[0]][START_POS[1]] = entrance_hall
+        else:
+            print("ERROR: 'Entrance Hall' not found in ROOM_CATALOGUE")
+            
+        if antechamber:
+            self.grid[GOAL_POS[0]][GOAL_POS[1]] = antechamber
+        else:
+            print("ERROR: 'Antechamber' not found in ROOM_CATALOGUE")
 
-    # Find the definitions from YOUR catalogue
-        try:
-            entrance_def = next(r for r in ROOM_CATALOGUE if r.name == "Entrance Hall")
-            antechamber_def = next(r for r in ROOM_CATALOGUE if r.name == "Antechamber")
-        except StopIteration:
-            print("CRITICAL ERROR: 'Entrance Hall' or 'Antechamber' not in ROOM_CATALOGUE")
-            return False
-        self.grid[er][ec] = Room(entrance_def, entrance_def.doors)
-        self.grid[gr][gc] = Room(antechamber_def, antechamber_def.doors)
+    def get_room(self, r: int, c: int) -> Optional[RoomDef]:
+        """Safely get the room definition at a given (row, col)."""
+        if 0 <= r < GRID_ROWS and 0 <= c < GRID_COLS:
+            return self.grid[r][c]
+        return None
 
-    def neighbors_mask(self, r: int, c: int) -> Tuple[bool,bool,bool,bool]:
-        # up,right,down,left exist & are empty/occupied
-        up = inside(r-1,c)
-        right = inside(r,c+1)
-        down = inside(r+1,c)
-        left = inside(r,c-1)
-        return (up,right,down,left)
-
-    def can_place(self, rd: RoomDef, r: int, c: int, from_dir: str) -> bool:
-        # Vérifie conditions basiques: pas déjà occupé, conditions de bordure, compatibilité des portes
-        if not inside(r,c): return False
-        if self.grid[r][c] is not None: return False
-        if rd.placement_condition == "border_only":
-            if not (r in (0, GRID_ROWS-1) or c in (0, GRID_COLS-1)):
-                return False
-        # Compatibilité: la porte opposée doit exister
-        idx_map = {"up":0,"right":1,"down":2,"left":3}
-        opp = {"up":"down","down":"up","left":"right","right":"left"}
-        need_open_here = rd.doors[idx_map[opp[from_dir]]]
-        if not need_open_here:
-            return False
-        # Eviter portes sortant de la grille
-        up,right,down,left = self.neighbors_mask(r,c)
-        for flag, exists in zip(rd.doors,(up,right,down,left)):
-            if flag and not exists:
-                return False
-        return True
-
-    def lock_level_for_row(self, r: int) -> int:
-        # 2.8: difficulté augmente vers le haut; bas (row 4) = 0, haut (row 0) = 2
-        if r == GRID_ROWS-1:
+    def get_lock_level(self, dest_row: int) -> int:
+        """
+        Calculates the lock level for a door based on the row it leads to.
+        Implements logic from section 2.8 of the PDF.
+        """
+        if dest_row == START_POS[0]:
+            # Starting row always has unlocked doors
             return 0
-        if r == 0:
+        if dest_row == GOAL_POS[0]:
+            # Goal row always has double-locked doors
             return 2
-        # intermédiaire: biais vers 1/2
-        vals = [0,1,1,2]
-        return random.choice(vals)
+        
+        # For intermediate rows, return a random level (e.g., 0, 1, or 1)
+        # This can be adjusted for difficulty.
+        return random.choice([0, 1, 1])
 
-    def draw_candidates(self, r:int, c:int, from_dir:str, force_free_option=True) -> List[RoomDef]:
-        # Tire 3 pièces admissibles avec pondération par rareté
-        pool = [rd for rd in self.deck if self.can_place(rd, r, c, from_dir)]
-        if not pool:
-            return []
-        # poids: 1 / 3^rarity
-        weights = [1.0/(3**rd.rarity) for rd in pool]
-        picks: List[RoomDef] = []
-        temp_pool = pool[:]
-        temp_w = weights[:]
-        for _ in range(min(3, len(temp_pool))):
-            wsum = sum(temp_w)
-            rnum = random.random()*wsum
-            acc = 0
-            idx = 0
-            for i, w in enumerate(temp_w):
-                acc += w
-                if rnum <= acc:
-                    idx = i
-                    break
-            picks.append(temp_pool.pop(idx))
-            temp_w.pop(idx)
-        if force_free_option and picks and all(p.gem_cost>0 for p in picks):
-            # insérer une option coût 0 si possible
-            free_opts = [rd for rd in pool if rd.gem_cost==0 and rd not in picks]
-            if free_opts:
-                picks[-1] = random.choice(free_opts)
-        return picks
+    def draw_candidates(self, r: int, c: int, from_dir: str) -> List[RoomDef]:
+        """
+        Draws 3 valid room candidates from the deck for a new position.
+        """
+        candidates = []
+        
+        # --- TODO ---
+        # 1. Filter self.deck for rooms that can be placed at (r, c)
+        #    [cite_start]- Check placement_condition (e.g., 'border_only') [cite: 419]
+        #    - Check if the room has a door matching 'from_dir'
+        
+        # [cite_start]2. Draw 3 rooms based on rarity (Section 2.7) [cite: 137, 418]
+        #    - Rarity 0: weight 1.0
+        #    - Rarity 1: weight 1/3
+        #    - Rarity 2: weight 1/9
+        #    - Rarity 3: weight 1/27
+        
+        # [cite_start]3. Ensure at least one room costs 0 gems [cite: 138, 458]
+        
+        # For now, just return the first 3 rooms from the deck as a placeholder
+        candidates = self.deck[:3] 
+        
+        print(f"Drawing candidates for ({r}, {c})")
+        return candidates
 
-    def place_room(self, rd: RoomDef, r: int, c: int, from_dir: str):
-        # Détermine les portes placées (bloquer celles qui n'ont pas de voisin)
-        up,right,down,left = self.neighbors_mask(r,c)
-        base = list(rd.doors)
-        # si pas de voisin -> fermera
-        base[0] = base[0] and up
-        base[1] = base[1] and right
-        base[2] = base[2] and down
-        base[3] = base[3] and left
-        rm = Room(rd, tuple(base))
-        self.grid[r][c] = rm
-        # retirer de la pioche (single copy)
-        if rd in self.deck:
-            self.deck.remove(rd)
+    def place_room(self, room_def: RoomDef, r: int, c: int):
+        """
+        Places a chosen room onto the grid and removes it from the deck.
+        """
+        print(f"Placing {room_def.name} at ({r}, {c})")
+        self.grid[r][c] = room_def
+        
+        # [cite_start]Remove the placed room from the deck so it can't be drawn again [cite: 101, 421]
+        if room_def in self.deck:
+            self.deck.remove(room_def)
