@@ -14,7 +14,7 @@ class RoomDef:
     # --- Core Properties (Almost every room has these) ---
     name: str 
     color: str 
-    image_path: str # e.g., "assets/images/rooms/vault.png"
+    image_path: str # e.g., "assets/images/rooms/vault_icon.png"
     
     # UPDATED: These can be a single number OR a (min, max) tuple
     rarity: Union[int, Tuple[int, int]]
@@ -44,7 +44,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="The Foundation",
         color="blue",
-        image_path="images/the_foundation.png",
+        image_path="images/the_foundation_icon.png",
         rarity=3,
         gem_cost=0,
         doors=(False, True, True, True),
@@ -55,7 +55,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Entrance Hall",
         color="blue",
-        image_path="images/entrance_hall.png",
+        image_path="images/entrance_hall_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(True, True, False, True),
@@ -64,7 +64,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Spare Room",
         color="blue",
-        image_path="images/spare_room.png",
+        image_path="images/spare_room_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(True, False, True, False),
@@ -74,7 +74,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Rotunda",
         color="blue",
-        image_path="images/rotunda.png",
+        image_path="images/rotunda_icon.png",
         rarity=3,
         gem_cost=3,
         doors=(False, False, True, True),
@@ -83,7 +83,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Parlor",
         color="blue",
-        image_path="images/parlor.png",
+        image_path="images/parlor_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(False, False, True, True),
@@ -93,7 +93,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Billiard Room",
         color="blue",
-        image_path="images/billiard_room.png",
+        image_path="images/billiard_room_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(False, False, True, True),
@@ -103,7 +103,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Gallery",
         color="blue",
-        image_path="images/gallery.png",
+        image_path="images/gallery_icon.png",
         rarity=3,
         gem_cost=0,
         doors=(True, False, True, False),
@@ -113,7 +113,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="room 8",
         color="blue",
-        image_path="images/room_8.png",
+        image_path="images/room_8_icon.png",
         rarity=3,
         gem_cost=0,
         doors=(False, False, True, True),
@@ -123,7 +123,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Closet",
         color="blue",
-        image_path="images/closet.png",
+        image_path="images/closet_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -133,7 +133,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Walk-in Closet",
         color="blue",
-        image_path="images/walk-in_closet.png",
+        image_path="images/walk-in_closet_icon.png",
         rarity=1,
         gem_cost=1,
         doors=(False, False, True, False),
@@ -143,7 +143,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Attic",
         color="blue",
-        image_path="images/attic.png",
+        image_path="images/attic_icon.png",
         rarity=3,
         gem_cost=3,
         doors=(False, False, True, False),
@@ -153,7 +153,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Storeroom",
         color="blue",
-        image_path="images/storeroom.png",
+        image_path="images/storeroom_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -163,7 +163,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Nook",
         color="blue",
-        image_path="images/nook.png",
+        image_path="images/nook_icon.png",
         rarity=1,
         gem_cost=0,
         doors=(False, True, True, False),
@@ -173,7 +173,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Garage",
         color="blue",
-        image_path="images/garage.png",
+        image_path="images/garage_icon.png",
         rarity=2,
         gem_cost=1,
         doors=(False, False, True, False),
@@ -184,7 +184,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Music Room",
         color="blue",
-        image_path="images/music_room.png",
+        image_path="images/music_room_icon.png",
         rarity=2,
         gem_cost=2,
         doors=(False, False, True, True),
@@ -196,7 +196,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Locker Room",
         color="blue",
-        image_path="images/locker_room.png",
+        image_path="images/locker_room_icon.png",
         rarity=3,
         gem_cost=1,
         doors=(True, False, True, False),
@@ -208,7 +208,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Den",
         color="blue",
-        image_path="images/den.png",
+        image_path="images/den_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(True, True, False, True),
@@ -218,7 +218,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Wine Cellar",
         color="blue",
-        image_path="images/wine_cellar.png",
+        image_path="images/wine_cellar_icon.png",
         rarity=3,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -228,7 +228,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Trophy Room",
         color="blue",
-        image_path="images/trophy_room.png",
+        image_path="images/trophy_room_icon.png",
         rarity=3,
         gem_cost=5,
         doors=(False, False, True, True),
@@ -238,7 +238,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Ballroom",
         color="blue",
-        image_path="images/ballroom.png",
+        image_path="images/ballroom_icon.png",
         rarity=2,
         gem_cost=2,
         doors=(True, False, True, False),
@@ -250,7 +250,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Pantry",
         color="blue",
-        image_path="images/pantry.png",
+        image_path="images/pantry_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(False, False, True, True),
@@ -262,7 +262,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Office",
         color="blue",
-        image_path="images/office.png",
+        image_path="images/office_icon.png",
         rarity=1,
         gem_cost=2,
         doors=(False, False, True, True),
@@ -272,7 +272,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Rumpus Room",
         color="blue",
-        image_path="images/rumpus_room.png",
+        image_path="images/rumpus_room_icon.png",
         rarity=1,
         gem_cost=1,
         doors=(True, False, True, False),
@@ -282,7 +282,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Vault",
         color="blue",
-        image_path="images/vault.png",
+        image_path="images/vault_icon.png",
         rarity=3,
         gem_cost=3,
         doors=(False, False, True, False),
@@ -294,7 +294,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Drawing Room",
         color="blue",
-        image_path="images/drawing_room.png",
+        image_path="images/drawing_room_icon.png",
         rarity=0,
         gem_cost=1,
         doors=(False, True, True, True),
@@ -304,7 +304,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Study",
         color="blue",
-        image_path="images/study.png",
+        image_path="images/study_icon.png",
         rarity=2,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -316,7 +316,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Library",
         color="blue",
-        image_path="images/library.png",
+        image_path="images/library_icon.png",
         rarity=2,
         gem_cost=0,
         doors=(False, False, True, True),
@@ -326,7 +326,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Chamber of Mirrors",
         color="blue",
-        image_path="images/chamber_of_mirrors.png",
+        image_path="images/chamber_of_mirrors_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -336,7 +336,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="The Pool",
         color="blue",
-        image_path="images/the_pool.png",
+        image_path="images/the_pool_icon.png",
         rarity=1,
         gem_cost=1,
         doors=(False, True, True, True),
@@ -346,7 +346,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Workshop",
         color="blue",
-        image_path="images/workshop.png",
+        image_path="images/workshop_icon.png",
         rarity=2,
         gem_cost=0,
         doors=(True, False, True, False),
@@ -356,7 +356,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Drafting Studio",
         color="blue",
-        image_path="images/drafting_studio.png",
+        image_path="images/drafting_studio_icon.png",
         rarity=3,
         gem_cost=2,
         doors=(True, False, True, False),
@@ -366,7 +366,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Utility Closet",
         color="blue",
-        image_path="images/utility_closet.png",
+        image_path="images/utility_closet_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -376,7 +376,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Boiler Room",
         color="blue",
-        image_path="images/boiler_room.png",
+        image_path="images/boiler_room_icon.png",
         rarity=2,
         gem_cost=1,
         doors=(False, True, True, True),
@@ -388,7 +388,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Pump Room",
         color="blue",
-        image_path="images/pump_room.png",
+        image_path="images/pump_room_icon.png",
         rarity=2,
         gem_cost=0,
         doors=(False, False, True, True),
@@ -398,7 +398,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Security",
         color="blue",
-        image_path="images/security.png",
+        image_path="images/security_icon.png",
         rarity=1,
         gem_cost=1,
         doors=(False, True, True, True),
@@ -411,7 +411,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Laboratory",
         color="blue",
-        image_path="images/laboratory.png",
+        image_path="images/laboratory_icon.png",
         rarity=1,
         gem_cost=1,
         doors=(False, False, True, True),
@@ -423,7 +423,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Sauna",
         color="blue",
-        image_path="images/sauna.png",
+        image_path="images/sauna_icon.png",
         rarity=2,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -436,7 +436,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Coat Check",
         color="blue",
-        image_path="images/coat_check.png",
+        image_path="images/coat_check_icon.png",
         rarity=1,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -448,7 +448,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Mail Room",
         color="blue",
-        image_path="images/mail_room.png",
+        image_path="images/mail_room_icon.png",
         rarity=0,
         gem_cost=2,
         doors=(False, False, True, False),
@@ -460,7 +460,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Freezer",
         color="blue",
-        image_path="images/freezer.png",
+        image_path="images/freezer_icon.png",
         rarity=3,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -470,7 +470,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Dining Room",
         color="blue",
-        image_path="images/dining_room.png",
+        image_path="images/dining_room_icon.png",
         rarity=1,
         gem_cost=0,
         doors=(False, True, True, True),
@@ -482,7 +482,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Observatory",
         color="blue",
-        image_path="images/observatory.png",
+        image_path="images/observatory_icon.png",
         rarity=1,
         gem_cost=1,
         doors=(False, False, True, True),
@@ -492,7 +492,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Conference Room",
         color="blue",
-        image_path="images/conference_room.png",
+        image_path="images/conference_room_icon.png",
         rarity=2,
         gem_cost=0,
         doors=(False, True, True, True),
@@ -505,7 +505,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Aquarium",
         color="blue",
-        image_path="images/aquarium.png",
+        image_path="images/aquarium_icon.png",
         rarity=2,
         gem_cost=1,
         doors=(False, True, True, True),
@@ -515,7 +515,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Antechamber",
         color="blue",
-        image_path="images/antechamber.png",
+        image_path="images/antechamber_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -525,7 +525,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Bedroom",
         color="purple",
-        image_path="images/bedroom.png",
+        image_path="images/bedroom_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(False, False, True, True),
@@ -536,7 +536,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Boudoir",
         color="purple",
-        image_path="images/boudoir.png",
+        image_path="images/boudoir_icon.png",
         rarity=1,
         gem_cost=0,
         doors=(False, False, True, True),
@@ -547,7 +547,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Guest Bedroom",
         color="purple",
-        image_path="images/guest_bedroom.png",
+        image_path="images/guest_bedroom_icon.png",
         rarity=0,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -558,7 +558,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Nursery",
         color="purple",
-        image_path="images/nursery.png",
+        image_path="images/nursery_icon.png",
         rarity=0,
         gem_cost=1,
         doors=(False, False, True, False),
@@ -569,7 +569,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Servant's Quarters",
         color="purple",
-        image_path="images/servant's_quarters.png",
+        image_path="images/servant's_quarters_icon.png",
         rarity=2,
         gem_cost=1,
         doors=(False, False, True, False),
@@ -580,7 +580,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Bunk Room",
         color="purple",
-        image_path="images/bunk_room.png",
+        image_path="images/bunk_room_icon.png",
         rarity=2,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -589,7 +589,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Her Ladyship's Chamber",
         color="purple",
-        image_path="images/her_ladyship's_chamber.png",
+        image_path="images/her_ladyship's_chamber_icon.png",
         rarity=3,
         gem_cost=0,
         doors=(False, False, True, False),
@@ -600,7 +600,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
     RoomDef(
         name="Master Bedroom",
         color="purple",
-        image_path="images/master_bedroom.png",
+        image_path="images/master_bedroom_icon.png",
         rarity=3,
         gem_cost=2,
         doors=(False, False, True, False),

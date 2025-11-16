@@ -27,7 +27,13 @@ import math
 import pygame
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
-from inventory import Inventory
+from inventory.inventory import Inventory
+from rooms.room_data import RoomDef, ROOM_CATALOGUE
+from player import Player
+from inventory.consumables import Consumables
+from inventory.inventory import Permanants
+
+
 # ==========================
 # Constantes & couleurs
 # ==========================
@@ -92,40 +98,6 @@ def text(surface, s, font, color, center=None, topleft=None):
     return rect
 
 # ==========================
-# Données de Jeu
-# ==========================
-
-@dataclass
-class RoomDef:
-    name: str
-    color: str
-    rarity: int  # 0..3, chaque +1 divise proba par 3
-    gem_cost: int = 0
-    doors: Tuple[bool,bool,bool,bool] = (True, True, True, True)  # up,right,down,left
-    border_only: bool = False
-    effect_on_enter: Optional[str] = None  # id d'effet simplifié
-
-@dataclass
-class Room:
-    definition: RoomDef
-    placed_doors: Tuple[bool,bool,bool,bool]
-
-# ==========================
-# Catalogue minimal de pièces (3–5 pièces pour prototype)
-# ==========================
-CATALOG: List[RoomDef] = [
-    RoomDef("Entrance Hall", "blue", 0, gem_cost=0, doors=(True,True,False,True)),
-    RoomDef("Corridor", "orange", 0, gem_cost=0, doors=(True,True,True,True)),
-    RoomDef("Bedroom", "purple", 1, gem_cost=0, doors=(True,False,True,False), effect_on_enter="+steps_10"),
-    RoomDef("Veranda", "green", 2, gem_cost=2, doors=(False,True,True,False), border_only=True, effect_on_enter="+gem_chance"),
-    RoomDef("Vault", "blue", 3, gem_cost=3, doors=(False,False,True,False), effect_on_enter="+coins_40"),
-    RoomDef("Shop", "yellow", 1, gem_cost=0, doors=(True,True,False,False), effect_on_enter="shop_sample"),
-    RoomDef("Antechamber", "blue", 0, gem_cost=0, doors=(False,False,True,False)),
-]
-
-NAME_TO_DEF = {r.name: r for r in CATALOG}
-
-# ==========================
 # Grille & logique de placement
 # ==========================
 class Manor:
@@ -167,7 +139,7 @@ class Manor:
         # Vérifie conditions basiques: pas déjà occupé, conditions de bordure, compatibilité des portes
         if not inside(r,c): return False
         if self.grid[r][c] is not None: return False
-        if rd.border_only:
+        if rd.placement_condition == "border_only":
             if not (r in (0, GRID_ROWS-1) or c in (0, GRID_COLS-1)):
                 return False
         # Compatibilité: la porte opposée doit exister
@@ -226,7 +198,7 @@ class Manor:
         # Détermine les portes placées (bloquer celles qui n'ont pas de voisin)
         up,right,down,left = self.neighbors_mask(r,c)
         base = list(rd.doors)
-        # si pas de voisin -> fermer
+        # si pas de voisin -> fermera
         base[0] = base[0] and up
         base[1] = base[1] and right
         base[2] = base[2] and down
@@ -237,21 +209,6 @@ class Manor:
         if rd in self.deck:
             self.deck.remove(rd)
 
-# ==========================
-# Joueur
-# ==========================
-class Player:
-    def __init__(self, r: int, c: int):
-        self.r = r
-        self.c = c
-        self.dir_index = 0  # index dans DIR_ORDER
-
-    def set_dir(self, dname: str):
-        self.dir_index = DIR_ORDER.index(dname)
-
-    @property
-    def dir(self) -> str:
-        return DIR_ORDER[self.dir_index]
 
 # ==========================
 # Effets simplifiés à l'entrée des pièces
@@ -377,6 +334,9 @@ class Game:
         self.font = pygame.font.SysFont("arial", 22)
         self.font_big = pygame.font.SysFont("arial", 28, bold=True)
         self.font_small = pygame.font.SysFont("arial", 18)
+        self.consumables = Consumables()
+        self.permanents = Permanents() 
+        self.inventory = Inventory()
 
         self.manor = Manor()
         sr, sc = self.manor.start
@@ -409,7 +369,7 @@ class Game:
         # Si pièce déjà existante: se déplacer
         if self.manor.grid[r][c] is not None:
             self.player.r, self.player.c = r, c
-            self.inv.steps -= 1
+            self.player.use_step()
             rd = self.manor.grid[r][c].definition
             apply_room_effect(self.inv, rd)
             self.post_move_check()
@@ -431,7 +391,7 @@ class Game:
 
     def post_move_check(self):
         # Défaite si plus de pas
-        if self.inv.steps < 0:
+        if self.player.inventory.consumables.data['step'] < 0:
             self.game_over = "Défaite: plus de pas."
             return
         # Victoire si sur l'Antechamber
@@ -451,7 +411,7 @@ class Game:
                         # entrée dans la nouvelle pièce directement
                         r,c,_ = placed
                         self.player.r, self.player.c = r, c
-                        self.inv.steps -= 1
+                        self.player.use_step()
                         apply_room_effect(self.inv, self.manor.grid[r][c].definition)
                         self.post_move_check()
                     continue
@@ -471,12 +431,12 @@ class Game:
         # HUD inventaire
         hud = pygame.Rect(0, HEIGHT-110, WIDTH, 110)
         draw_rounded(self.screen, PANEL, hud, 0)
-        stats = f"Pas: {self.inv.steps}   Gemmes: {self.inv.gems}   Clés: {self.inv.keys}   Dés: {self.inv.dice}   Pièces: {self.inv.coins}"
+        stats = f"Pas: {self.consumables.data['step']}   Gemmes: {self.consumables.data['gem']}   Clés: {self.inventory.data['key']}   Dés: {self.inventory.data['dice']}   Pièces: {self.inventory.data['coin']}"
         text(self.screen, stats, self.font_big, TEXT, center=(WIDTH//2, HEIGHT-60))
         perks = []
-        if self.inv.lockpick: perks.append("Crochetage ON")
-        if self.inv.rabbit_foot: perks.append("Patte de lapin ON")
-        if self.inv.metal_detector: perks.append("Détecteur ON")
+        if self.permanents.has_item('lockpick'): perks.append("Crochetage ON")
+        if self.permanents.has_item('paw'): perks.append("Patte de lapin ON")
+        if self.permanents.has_item('metal_detector'): perks.append("Détecteur ON")
         text(self.screen, "  |  ".join(perks) if perks else "", self.font, SUBTLE, center=(WIDTH//2, HEIGHT-30))
 
         # Grille
