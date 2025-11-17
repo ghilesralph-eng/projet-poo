@@ -2,9 +2,9 @@ from inventory.inventory import Inventory
 
 class Player:
 
-    def __init__(self,x,y):
-        self.x = 3
-        self.y = 5
+    def __init__(self,x= 3,y= 1):
+        self.x = x
+        self.y = y
         self.inventory= Inventory()
 
     def move(self,dx,dy):
@@ -13,6 +13,23 @@ class Player:
 
     def __str__(self):
         return f"Player at ({self.x}, {self.y})"
+    
+#forwarding use methods
+
+    def use_step(self):
+        return self.inventory.use_step()
+    
+    def use_coins(self,n):
+        return self.inventory.use_coins(n)
+    
+    def use_gems(self,n):
+        return self.inventory.use_gems(n)
+    
+    def use_keys(self,n=1):
+        return self.inventory.use_keys(n)
+    
+    def use_dice(self):
+        return self.inventory.use_dice()  
     
 #forwarding use methods
 
