@@ -119,20 +119,67 @@ def get_room_def(room_obj):
 # ==========================
 
 def apply_room_effect(inv: Inventory, rd: RoomDef):
-    effect = getattr(rd, "effect_on_enter", None)
+    eid = rd.effect_id
+    if not eid:
+        return
 
-    if effect == "+steps_10":
-        inv.add_steps(10)
-    elif effect == "+coins_40":
-        inv.add_coins(40)
-    elif effect == "+gem_chance":
-        p = 0.5 + (0.2 if inv.rabbit_foot else 0)
-        if random.random() < p:
-            inv.add_gems(1)
-    elif effect == "shop_sample":
-        if inv.coins >= 10:
-            inv.use_coins(10)
-            inv.add_keys(1)
+    value = rd.effect_value
+    if isinstance(value, tuple):
+        import random
+        value = random.randint(value[0], value[1])
+
+    if eid == "add_step":
+        inv.add_steps(value)
+    elif eid == "add_coin":
+        inv.add_coins(value)
+    elif eid == "add_gem":
+        inv.add_gems(value)
+    elif eid == "add_key":
+        inv.add_keys(value)
+    elif eid == "lockpick":
+        inv.add_permanent("lockpick")
+    elif eid == "metaldetector":
+        inv.add_permanent("metal_detector")
+
+# ==========================
+# room_loot function
+#=========================
+
+def loot_room(inv: Inventory, room):
+    if room.looted:
+        return
+    rd = room.definition
+    import random
+
+    for obj_name, (mn, mx) in rd.objects_in_room.items():
+        qty = random.randint(mn, mx)
+
+        if qty <= 0:
+            continue
+
+        # apply rabbit_foot / metal_detector modifiers if needed
+
+        if obj_name in ("apple", "banana", "cupcake", "orange"):
+            # treat as food -> add steps immediately
+            # e.g. apple=+2, banana=+3...
+            inv.add_steps(2 * qty)   # tweak numbers
+        elif obj_name == "key":
+            inv.add_keys(qty)
+        elif obj_name == "gem":
+            inv.add_gems(qty)
+        elif obj_name == "coin":
+            inv.add_coins(qty)
+        elif obj_name == "dice":
+            inv.add_dice(qty)
+        elif obj_name == "lockpick":
+            inv.add_permanent("lockpick")
+        elif obj_name == "metaldetector":
+            inv.add_permanent("metal_detector")
+        elif obj_name == "paw":
+            inv.add_permanent("rabbit_foot")
+        # etc…
+
+    room.looted = True
 
 
 # ==========================
@@ -343,8 +390,10 @@ class Game:
         if self.manor.grid[r][c] is not None:
             self.player.r, self.player.c = r, c
             self.player.use_step()
-            rd = get_room_def(self.manor.grid[r][c])
+            room = self.manor.grid[r][c]           # this is the Room wrapper
+            rd = get_room_def(room)
             apply_room_effect(self.inventory, rd)
+            loot_room(self.inventory, room)
             self.post_move_check()
             return
 
@@ -387,8 +436,10 @@ class Game:
                         r, c, _ = placed
                         self.player.r, self.player.c = r, c
                         self.player.use_step()
-                        rd = get_room_def(self.manor.grid[r][c])
+                        room = self.manor.grid[r][c]
+                        rd = get_room_def(room)
                         apply_room_effect(self.inventory, rd)
+                        loot_room(self.inventory, room)
                         self.post_move_check()
                     continue
 
