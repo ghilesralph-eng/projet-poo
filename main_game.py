@@ -3,7 +3,7 @@ Blue Prince — Prototype Pygame (Option D)
 
 Fonctionnalités incluses (version D):
 - Grille 5x9 avec pièces posées progressivement
-- Déplacement ZQSD pour choisir une direction, Espace pour valider (spec. 2.5) 
+- Déplacement ZQSD pour choisir une direction, Espace pour valider (spec. 2.5)
 - Ouverture de portes avec niveaux de verrouillage 0/1/2 + clés / kit de crochetage (spec. 2.6)
 - Tirage de 3 pièces pondéré par rareté, au moins une pièce coût 0 gemme (spec. 2.7)
 - Reroll avec dés (si disponible)
@@ -11,23 +11,19 @@ Fonctionnalités incluses (version D):
 - Quelques pièces réelles avec effets simples (gains de ressources)
 - Condition de placement pour une pièce (Veranda = bordure)
 - Victoire en atteignant l'Antechamber (haut de la grille), défaite si plus de pas
-
-Contrôles:
-- Z / Q / S / D : choisir la direction (haut / gauche / bas / droite)
-- ESPACE : valider l'action (se déplacer ou ouvrir)
-- ÉCHAP : quitter
-- Pendant le tirage: ←/→ ou A/D pour sélectionner, ENTRÉE pour poser, R pour relancer (si dés>0)
 """
 
 import sys
+import os
 import random
-import pygame
 from typing import Dict, List, Optional, Tuple
 
+import pygame
+
 from inventory.inventory import Inventory
-from rooms.room_data import RoomDef
+from rooms.room_data import RoomDef, ROOM_CATALOGUE
 from player import Player
-from manor import Manor, GRID_ROWS, GRID_COLS  # ton manor propre
+from manor import Manor, GRID_ROWS, GRID_COLS
 
 # ==========================
 # Constantes & couleurs
@@ -35,44 +31,41 @@ from manor import Manor, GRID_ROWS, GRID_COLS  # ton manor propre
 WIDTH, HEIGHT = 1200, 800
 FPS = 60
 
-GRID_ROWS, GRID_COLS = 9, 5    # 9 lignes, 5 colonnes
+HEADER_H = 96           # bandeau du haut
+MARGIN   = 10           # marge entre les cases
+TILE     = 64           # taille d’une case
 
-HEADER_H = 96                  # bandeau du haut
-MARGIN   = 10                  # marge entre les cases
-TILE     = 64                  # TAILLE FIXE d’une case
-
-# Taille de la grille
+# Taille de la grille (utilise GRID_ROWS / GRID_COLS importés de manor)
 GRID_W = GRID_COLS * TILE + (GRID_COLS + 1) * MARGIN
 GRID_H = GRID_ROWS * TILE + (GRID_ROWS + 1) * MARGIN
 
 # Position de la grille (gauche)
 GRID_X = 40
-GRID_Y = HEADER_H + 24         # un peu sous le header
+GRID_Y = HEADER_H + 24  # sous le header
 
-BG = (18, 20, 26)
-PANEL = (30, 34, 44)
-TEXT = (235, 240, 255)
-SUBTLE = (160, 170, 190)
-ACCENT = (120, 180, 255)
-DANGER = (230, 80, 80)
+BG      = (18, 20, 26)
+PANEL   = (30, 34, 44)
+TEXT    = (235, 240, 255)
+SUBTLE  = (160, 170, 190)
+ACCENT  = (120, 180, 255)
+DANGER  = (230, 80, 80)
 SUCCESS = (90, 200, 140)
 OUTLINE = (240, 245, 255)
 
-
 ROOM_COLORS = {
-    "blue": (70, 110, 170),
+    "blue":   (70, 110, 170),
     "yellow": (220, 190, 60),
-    "green": (80, 160, 110),
+    "green":  (80, 160, 110),
     "purple": (150, 100, 170),
     "orange": (220, 140, 80),
-    "red": (200, 80, 80),
+    "red":    (200, 80, 80),
 }
 
 # Directions (r, c)
 DIRS: Dict[str, Tuple[int, int]] = {
-    "up": (-1, 0),
-    "down": (1, 0),
-    "left": (0, -1),
+    "up":    (-1, 0),
+    "down":  (1, 0),
+    "left":  (0, -1),
     "right": (0, 1),
 }
 KEY_TO_DIR = {
@@ -83,6 +76,7 @@ KEY_TO_DIR = {
     pygame.K_a: "left",
     pygame.K_d: "right",
 }
+
 
 # ==========================
 # Utilitaires
@@ -112,25 +106,29 @@ def text(surface, s, font, color, center=None, topleft=None):
     surface.blit(surf, rect)
     return rect
 
+
+def get_room_def(room_obj):
+    """Compat : Room wrapper ou RoomDef direct."""
+    if hasattr(room_obj, "definition"):
+        return room_obj.definition
+    return room_obj
+
+
 # ==========================
 # Effets de pièces
 # ==========================
 
 def apply_room_effect(inv: Inventory, rd: RoomDef):
-    # Certains RoomDef n’ont pas d’effet → None par défaut
     effect = getattr(rd, "effect_on_enter", None)
 
     if effect == "+steps_10":
         inv.add_steps(10)
-
     elif effect == "+coins_40":
         inv.add_coins(40)
-
     elif effect == "+gem_chance":
         p = 0.5 + (0.2 if inv.rabbit_foot else 0)
         if random.random() < p:
             inv.add_gems(1)
-
     elif effect == "shop_sample":
         if inv.coins >= 10:
             inv.use_coins(10)
@@ -142,13 +140,14 @@ def apply_room_effect(inv: Inventory, rd: RoomDef):
 # ==========================
 
 class DrawUI:
-    def __init__(self, font, font_small):
+    def __init__(self, font, font_small, game: "Game"):
         self.font = font
         self.font_small = font_small
+        self.game = game
         self.active = False
         self.candidates: List[RoomDef] = []
         self.selected = 0
-        self.pos: Tuple[int, int] = (0, 0)
+        self.pos: Tuple[int, int] = (0, 0)   # (row, col)
         self.from_dir: str = "up"
 
     def open(self, candidates: List[RoomDef], pos: Tuple[int, int], from_dir: str):
@@ -172,7 +171,7 @@ class DrawUI:
             elif e.key == pygame.K_r:
                 if inventory.dice > 0:
                     inventory.use_dice(1)
-                    r, c = self.pos          # r = ligne, c = colonne
+                    r, c = self.pos
                     self.candidates = manor.draw_candidates(r, c, self.from_dir)
                     self.selected = 0
             elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
@@ -180,7 +179,7 @@ class DrawUI:
                 cost = choice.gem_cost if not isinstance(choice.gem_cost, tuple) else choice.gem_cost[0]
                 if not inventory.use_gems(cost):
                     return None
-                r, c = self.pos              # r = ligne, c = colonne
+                r, c = self.pos
                 manor.place_room(choice, r, c, self.from_dir)
                 self.close()
                 return (r, c, choice)
@@ -189,9 +188,11 @@ class DrawUI:
     def draw(self, screen):
         if not self.active:
             return
+
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 160))
         screen.blit(overlay, (0, 0))
+
         panel = pygame.Rect(120, 140, WIDTH - 240, HEIGHT - 280)
         draw_rounded(screen, PANEL, panel, 20)
         text(
@@ -210,40 +211,57 @@ class DrawUI:
         gap = 40
         total_w = len(self.candidates) * card_w + (len(self.candidates) - 1) * gap
         start_x = panel.centerx - total_w // 2
-        y = panel.top + 90
+        base_y = panel.top + 90
 
         for i, rd in enumerate(self.candidates):
-            rect = pygame.Rect(start_x + i * (card_w + gap), y, card_w, 360)
+            rect = pygame.Rect(start_x + i * (card_w + gap), base_y, card_w, 360)
             sel = (i == self.selected)
             draw_rounded(screen, (60, 65, 80) if not sel else (80, 90, 110), rect, 18)
 
-            color = ROOM_COLORS.get(rd.color, (120, 120, 120))
+            # bandeau couleur
+            color = ROOM_COLORS.get(getattr(rd, "color", "blue"), (120, 120, 120))
             head = rect.copy()
             head.height = 56
             draw_rounded(screen, color, head, 18)
             text(screen, rd.name, self.font, (20, 20, 20), center=head.center)
 
-            y2 = rect.top + 80
-            text(screen, f"Couleur: {rd.color}", self.font_small, TEXT, topleft=(rect.left + 16, y2)); y2 += 28
-            text(screen, f"Rareté: {rd.rarity}", self.font_small, TEXT, topleft=(rect.left + 16, y2)); y2 += 28
-            text(screen, f"Coût gemmes: {rd.gem_cost}", self.font_small, TEXT, topleft=(rect.left + 16, y2)); y2 += 28
+            # IMAGE au centre de la carte
+            img = self.game.room_images.get(rd.name)
+            if img is not None:
+                thumb = pygame.transform.smoothscale(
+                    img, (int(card_w * 0.6), int(card_w * 0.6))
+                )
+                thumb_rect = thumb.get_rect(center=(rect.centerx, rect.top + 150))
+                screen.blit(thumb, thumb_rect)
+                y2 = rect.top + 220
+            else:
+                y2 = rect.top + 80
+
+            # infos texte
+            text(screen, f"Couleur: {rd.color}", self.font_small, TEXT,
+                 topleft=(rect.left + 16, y2)); y2 += 28
+            text(screen, f"Rareté: {rd.rarity}", self.font_small, TEXT,
+                 topleft=(rect.left + 16, y2)); y2 += 28
+            text(screen, f"Coût gemmes: {rd.gem_cost}", self.font_small, TEXT,
+                 topleft=(rect.left + 16, y2)); y2 += 28
 
             y2 += 8
-            text(screen, "Portes:", self.font_small, SUBTLE, topleft=(rect.left + 16, y2)); y2 += 24
+            text(screen, "Portes:", self.font_small, SUBTLE,
+                 topleft=(rect.left + 16, y2)); y2 += 24
             pr = ["↑", "→", "↓", "←"]
             s = " ".join([pr[i] if rd.doors[i] else "·" for i in range(4)])
-            text(screen, s, self.font, TEXT, topleft=(rect.left + 16, y2)); y2 += 36
+            text(screen, s, self.font, TEXT,
+                 topleft=(rect.left + 16, y2)); y2 += 36
 
             if getattr(rd, "placement_condition", None) == "border_only":
-                text(screen, "Placement: bordure",
-                     self.font_small, SUBTLE,
+                text(screen, "Placement: bordure", self.font_small, SUBTLE,
                      topleft=(rect.left + 16, y2)); y2 += 28
 
             effect = getattr(rd, "effect_on_enter", None)
             if effect:
-                text(screen, f"Effet: {effect}",
-                     self.font_small, SUBTLE,
+                text(screen, f"Effet: {effect}", self.font_small, SUBTLE,
                      topleft=(rect.left + 16, y2)); y2 += 28
+
 
 # ==========================
 # Jeu principal
@@ -259,15 +277,43 @@ class Game:
         self.font_big = pygame.font.SysFont("arial", 28, bold=True)
         self.font_small = pygame.font.SysFont("arial", 18)
 
+        # ---------- IMAGES DES ROOMS ----------
+        # ---------- IMAGES DE ROOMS ----------
+        # On charge une icône 64x64 environ pour chaque room
+        self.room_images: Dict[str, pygame.Surface] = {}
+        ICON_DIR = os.path.join("rooms", "icon")
+        img_w = TILE - 18
+        img_h = TILE - 18
+
+        for rd in ROOM_CATALOGUE:
+            # nom logique de la room
+            name = rd.name
+
+            # tes fichiers sont du type: "bedroom_icon.png", "antechamber_icon.png"
+            base = name.lower().replace(" ", "_")
+            filename = f"{base}_icon.png"
+            path = os.path.join(ICON_DIR, filename)
+
+            try:
+                img = pygame.image.load(path).convert_alpha()
+                img = pygame.transform.smoothscale(img, (img_w, img_h))
+                self.room_images[name] = img
+            except Exception as e:
+                print(f"[WARN] pas d'image pour {name} ({path}) : {e}")
+
+        # ---------- INVENTAIRE / MANOIR / JOUEUR ----------
         self.inventory = Inventory()
         self.manor = Manor()
 
-        # Manor.start doit être (row, col)
+        # Manor.start est (row, col)
         sr, sc = self.manor.start
         self.player = Player(sr, sc, self.inventory)
 
-        self.message = "ZQSD pour choisir, ESPACE pour valider. Objectif: atteindre l'Antechamber tout en haut."
-        self.draw_ui = DrawUI(self.font_big, self.font)
+        self.message = (
+            "ZQSD pour choisir, ESPACE pour valider. "
+            "Objectif: atteindre l'Antechamber tout en haut."
+        )
+        self.draw_ui = DrawUI(self.font_big, self.font, self)
         self.game_over: Optional[str] = None
 
     def current_room(self):
@@ -277,12 +323,15 @@ class Game:
     def try_action(self):
         if self.game_over or self.draw_ui.active:
             return
+
         dname = self.player.dir
         dr, dc = DIRS[dname]
         r, c = self.player.r + dr, self.player.c + dc
+
         if not inside(r, c):
             self.message = "Un mur bloque ce côté."
             return
+
         here = self.current_room()
         idx_map = {"up": 0, "right": 1, "down": 2, "left": 3}
         i = idx_map[dname]
@@ -294,7 +343,7 @@ class Game:
         if self.manor.grid[r][c] is not None:
             self.player.r, self.player.c = r, c
             self.player.use_step()
-            rd = self.manor.grid[r][c].definition
+            rd = get_room_def(self.manor.grid[r][c])
             apply_room_effect(self.inventory, rd)
             self.post_move_check()
             return
@@ -325,10 +374,12 @@ class Game:
     def handle_events(self):
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
+                pygame.quit()
+                sys.exit()
             if e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
-                    pygame.quit(); sys.exit()
+                    pygame.quit()
+                    sys.exit()
 
                 if self.draw_ui.active:
                     placed = self.draw_ui.handle_event(e, self.inventory, self.manor)
@@ -336,7 +387,8 @@ class Game:
                         r, c, _ = placed
                         self.player.r, self.player.c = r, c
                         self.player.use_step()
-                        apply_room_effect(self.inventory, self.manor.grid[r][c].definition)
+                        rd = get_room_def(self.manor.grid[r][c])
+                        apply_room_effect(self.inventory, rd)
                         self.post_move_check()
                     continue
 
@@ -346,8 +398,7 @@ class Game:
                     self.try_action()
 
     def draw_grid(self):
-        # Bandeau haut
-        # Bandeau haut (titre seulement)
+        # Bandeau haut (titre)
         header = pygame.Rect(0, 0, WIDTH, HEADER_H)
         draw_rounded(self.screen, PANEL, header, 0)
         text(
@@ -368,7 +419,7 @@ class Game:
         )
         draw_rounded(self.screen, PANEL, right_panel, 18)
 
-        # Inventaire en haut du panneau droit
+        # Inventaire
         y = right_panel.y + 20
         text(self.screen, "Inventaire", self.font_big, TEXT,
              topleft=(right_panel.x + 20, y))
@@ -386,7 +437,7 @@ class Game:
                  topleft=(right_panel.x + 30, y))
             y += 28
 
-        # Permanents (lockpick, etc.)
+        # Permanents
         perks = []
         if self.inventory.lockpick:
             perks.append("Crochetage")
@@ -404,14 +455,15 @@ class Game:
                  self.font_small, TEXT,
                  topleft=(right_panel.x + 30, y))
 
-        # Message de jeu en bas du panneau droit
+        # Message en bas du panneau droit
         text(
             self.screen,
             self.message,
             self.font_small, SUBTLE,
             topleft=(right_panel.x + 24, right_panel.bottom - 60)
         )
-        # Panneau qui encadre la grille
+
+        # Panneau autour de la grille
         grid_panel = pygame.Rect(
             GRID_X - 20,
             GRID_Y - 20,
@@ -420,38 +472,67 @@ class Game:
         )
         draw_rounded(self.screen, (26, 30, 40), grid_panel, 18)
 
+        # Grille + rooms
         for r in range(GRID_ROWS):
             for c in range(GRID_COLS):
                 rect = grid_to_px(r, c)
                 draw_rounded(self.screen, (45, 50, 62), rect, 10)
+
                 rm = self.manor.grid[r][c]
                 if rm is None:
                     continue
-                col = ROOM_COLORS.get(rm.definition.color, (110, 110, 110))
+
+                # rm peut être soit un RoomDef soit un objet Room avec .definition
+                rd = rm.definition if hasattr(rm, "definition") else rm
+
+                col = ROOM_COLORS.get(getattr(rd, "color", "blue"), (110, 110, 110))
                 inner = rect.inflate(-14, -14)
                 draw_rounded(self.screen, col, inner, 12)
-                text(self.screen, rm.definition.name, self.font_small, (20, 20, 20),
-                     center=(inner.centerx, inner.top + 18))
-                up, right, down, left = rm.placed_doors
-                if up:
-                    pygame.draw.rect(self.screen, OUTLINE, (inner.centerx - 10, inner.top - 2, 20, 8))
-                if right:
-                    pygame.draw.rect(self.screen, OUTLINE, (inner.right - 2, inner.centery - 10, 8, 20))
-                if down:
-                    pygame.draw.rect(self.screen, OUTLINE, (inner.centerx - 10, inner.bottom - 6, 20, 8))
-                if left:
-                    pygame.draw.rect(self.screen, OUTLINE, (inner.left - 6, inner.centery - 10, 8, 20))
 
+                # --- image de la room au centre ---
+                img = self.room_images.get(rd.name)
+                if img is not None:
+                    img_rect = img.get_rect(center=inner.center)
+                    self.screen.blit(img, img_rect)
+                else:
+                    # fallback texte si aucune image
+                    text(
+                        self.screen,
+                        rd.name,
+                        self.font_small,
+                        (20, 20, 20),
+                        center=inner.center,
+                    )
+
+                # portes (si tu as rm.placed_doors)
+                doors = getattr(rm, "placed_doors", (False, False, False, False))
+                up, right, down, left = doors
+                if up:
+                    pygame.draw.rect(self.screen, OUTLINE,
+                                     (inner.centerx - 10, inner.top - 2, 20, 8))
+                if right:
+                    pygame.draw.rect(self.screen, OUTLINE,
+                                     (inner.right - 2, inner.centery - 10, 8, 20))
+                if down:
+                    pygame.draw.rect(self.screen, OUTLINE,
+                                     (inner.centerx - 10, inner.bottom - 6, 20, 8))
+                if left:
+                    pygame.draw.rect(self.screen, OUTLINE,
+                                     (inner.left - 6, inner.centery - 10, 8, 20))
+
+        # Joueur
         pr = grid_to_px(self.player.r, self.player.c)
         pygame.draw.circle(self.screen, ACCENT, pr.center, 14)
         off = {"up": (0, -20), "right": (20, 0), "down": (0, 20), "left": (-20, 0)}[self.player.dir]
         tip = (pr.centerx + off[0], pr.centery + off[1])
         pygame.draw.line(self.screen, ACCENT, pr.center, tip, 3)
 
+        # But
         gr, gc = self.manor.goal
         goal_rect = grid_to_px(gr, gc)
         pygame.draw.rect(self.screen, SUCCESS, goal_rect.inflate(6, 6), 3, border_radius=10)
 
+        # Overlay fin de partie
         if self.game_over:
             overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 160))
