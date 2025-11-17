@@ -3,11 +3,11 @@
 class Inventory:
     def __init__(self):
         # ressources consommables
-        self.steps = 76
-        self.coins = 0
-        self.gems = 2
-        self.keys = 1
-        self.dice = 1
+        self.steps = 99
+        self.coins = 99
+        self.gems = 99
+        self.keys = 99
+        self.dice = 99
 
         # objets permanents
         self.lockpick = False
