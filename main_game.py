@@ -23,7 +23,7 @@ import pygame
 from inventory.inventory import Inventory
 from rooms.room_data import RoomDef, ROOM_CATALOGUE
 from player import Player
-from manor import Manor, GRID_ROWS, GRID_COLS
+from manor import Manor, GRID_ROWS, GRID_COLS, OPPOSITE_DIR, DOOR_INDEX
 
 # ==========================
 # Constantes & couleurs
@@ -147,39 +147,45 @@ def apply_room_effect(inv: Inventory, rd: RoomDef):
 
 def loot_room(inv: Inventory, room):
     if room.looted:
-        return
+        return []
+
     rd = room.definition
     import random
+    messages = []
 
     for obj_name, (mn, mx) in rd.objects_in_room.items():
         qty = random.randint(mn, mx)
-
         if qty <= 0:
             continue
 
-        # apply rabbit_foot / metal_detector modifiers if needed
-
         if obj_name in ("apple", "banana", "cupcake", "orange"):
-            # treat as food -> add steps immediately
-            # e.g. apple=+2, banana=+3...
-            inv.add_steps(2 * qty)   # tweak numbers
+            inv.add_steps(2 * qty)
+            messages.append(f"+{2 * qty} pas (nourriture)")
         elif obj_name == "key":
             inv.add_keys(qty)
+            messages.append(f"+{qty} clé(s)")
         elif obj_name == "gem":
             inv.add_gems(qty)
+            messages.append(f"+{qty} gemme(s)")
         elif obj_name == "coin":
             inv.add_coins(qty)
+            messages.append(f"+{qty} pièce(s)")
         elif obj_name == "dice":
             inv.add_dice(qty)
+            messages.append(f"+{qty} dé(s)")
         elif obj_name == "lockpick":
             inv.add_permanent("lockpick")
+            messages.append("Kit de crochetage obtenu")
         elif obj_name == "metaldetector":
             inv.add_permanent("metal_detector")
+            messages.append("Détecteur de métal obtenu")
         elif obj_name == "paw":
             inv.add_permanent("rabbit_foot")
-        # etc…
+            messages.append("Patte de lapin obtenue")
 
     room.looted = True
+    return messages
+
 
 
 # ==========================
@@ -197,12 +203,18 @@ class DrawUI:
         self.pos: Tuple[int, int] = (0, 0)   # (row, col)
         self.from_dir: str = "up"
 
+        # nouveaux : orientation et portes pour chaque candidat
+        self.orientations: List[int] = []
+        self.doors_list: List[Tuple[bool, bool, bool, bool]] = []
+
     def open(self, candidates: List[RoomDef], pos: Tuple[int, int], from_dir: str):
         self.active = True
         self.candidates = candidates
         self.selected = 0
         self.pos = pos
         self.from_dir = from_dir
+        self._compute_orientations()
+
 
     def close(self):
         self.active = False
@@ -221,13 +233,17 @@ class DrawUI:
                     r, c = self.pos
                     self.candidates = manor.draw_candidates(r, c, self.from_dir)
                     self.selected = 0
+                    self._compute_orientations()
+
             elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 choice = self.candidates[self.selected]
                 cost = choice.gem_cost if not isinstance(choice.gem_cost, tuple) else choice.gem_cost[0]
                 if not inventory.use_gems(cost):
                     return None
                 r, c = self.pos
-                manor.place_room(choice, r, c, self.from_dir)
+                orientation = self.orientations[self.selected]
+                doors = self.doors_list[self.selected]
+                manor.place_room(choice, r, c, self.from_dir, orientation=orientation, doors=doors)
                 self.close()
                 return (r, c, choice)
         return None
@@ -275,14 +291,16 @@ class DrawUI:
             # IMAGE au centre de la carte
             img = self.game.room_images.get(rd.name)
             if img is not None:
-                thumb = pygame.transform.smoothscale(
-                    img, (int(card_w * 0.6), int(card_w * 0.6))
-                )
-                thumb_rect = thumb.get_rect(center=(rect.centerx, rect.top + 150))
+                size = int(card_w * 0.75)
+                orient = self.orientations[i] if i < len(self.orientations) else 0
+                rotated = pygame.transform.rotate(img, -90 * orient)   # change sign if flipped
+                thumb = pygame.transform.scale(rotated, (size, size))
+                thumb_rect = thumb.get_rect(center=(rect.centerx, rect.top + 160))
                 screen.blit(thumb, thumb_rect)
-                y2 = rect.top + 220
+                y2 = rect.top + 260
             else:
                 y2 = rect.top + 80
+
 
             # infos texte
             text(screen, f"Couleur: {rd.color}", self.font_small, TEXT,
@@ -296,7 +314,8 @@ class DrawUI:
             text(screen, "Portes:", self.font_small, SUBTLE,
                  topleft=(rect.left + 16, y2)); y2 += 24
             pr = ["↑", "→", "↓", "←"]
-            s = " ".join([pr[i] if rd.doors[i] else "·" for i in range(4)])
+            doors = self.doors_list[i] if i < len(self.doors_list) else rd.doors
+            s = " ".join([pr[j] if doors[j] else "·" for j in range(4)])
             text(screen, s, self.font, TEXT,
                  topleft=(rect.left + 16, y2)); y2 += 36
 
@@ -308,6 +327,27 @@ class DrawUI:
             if effect:
                 text(screen, f"Effet: {effect}", self.font_small, SUBTLE,
                      topleft=(rect.left + 16, y2)); y2 += 28
+                
+    def _compute_orientations(self):
+        """Choisit une orientation/portes pour chaque candidat à la position courante."""
+        self.orientations = []
+        self.doors_list = []
+
+        manor = self.game.manor
+        r, c = self.pos
+        entry_dir_name = OPPOSITE_DIR[self.from_dir]
+        entry_idx = DOOR_INDEX[entry_dir_name]
+
+        for rd in self.candidates:
+            options = manor._valid_rotations_for(rd, r, c, entry_idx)
+            if options:
+                orientation, doors = random.choice(options)
+            else:
+                orientation, doors = 0, rd.doors
+            self.orientations.append(orientation)
+            self.doors_list.append(tuple(doors))
+
+
 
 
 # ==========================
@@ -329,8 +369,7 @@ class Game:
         # On charge une icône 64x64 environ pour chaque room
         self.room_images: Dict[str, pygame.Surface] = {}
         ICON_DIR = os.path.join("rooms", "icon")
-        img_w = TILE - 18
-        img_h = TILE - 18
+
 
         for rd in ROOM_CATALOGUE:
             # nom logique de la room
@@ -343,7 +382,6 @@ class Game:
 
             try:
                 img = pygame.image.load(path).convert_alpha()
-                img = pygame.transform.smoothscale(img, (img_w, img_h))
                 self.room_images[name] = img
             except Exception as e:
                 print(f"[WARN] pas d'image pour {name} ({path}) : {e}")
@@ -362,6 +400,11 @@ class Game:
         )
         self.draw_ui = DrawUI(self.font_big, self.font, self)
         self.game_over: Optional[str] = None
+
+        # petit historique d'événements (loot, effets...)
+        # chaque entrée = (texte, ttl_en_frames)
+        self.event_log: List[Tuple[str, int]] = []
+
 
     def current_room(self):
         r, c = self.player.r, self.player.c
@@ -390,12 +433,15 @@ class Game:
         if self.manor.grid[r][c] is not None:
             self.player.r, self.player.c = r, c
             self.player.use_step()
-            room = self.manor.grid[r][c]           # this is the Room wrapper
+            room = self.manor.grid[r][c]
             rd = get_room_def(room)
             apply_room_effect(self.inventory, rd)
-            loot_room(self.inventory, room)
+            msgs = loot_room(self.inventory, room)
+            for m in msgs:
+                self.push_event(f"{rd.name}: {m}")
             self.post_move_check()
             return
+
 
         # nouvelle pièce : porte verrouillée
         lock = self.manor.lock_level_for_row(r)
@@ -439,8 +485,11 @@ class Game:
                         room = self.manor.grid[r][c]
                         rd = get_room_def(room)
                         apply_room_effect(self.inventory, rd)
-                        loot_room(self.inventory, room)
+                        msgs = loot_room(self.inventory, room)
+                        for m in msgs:
+                            self.push_event(f"{rd.name}: {m}")
                         self.post_move_check()
+
                     continue
 
                 if e.key in KEY_TO_DIR:
@@ -468,6 +517,17 @@ class Game:
             right_w,
             HEIGHT - HEADER_H - 40
         )
+
+        # mise à jour de la durée de vie des messages d'événements
+        new_log = []
+        for msg, ttl in self.event_log:
+            ttl -= 1
+            if ttl > 0:
+                new_log.append((msg, ttl))
+        self.event_log = new_log
+
+
+
         draw_rounded(self.screen, PANEL, right_panel, 18)
 
         # Inventaire
@@ -505,6 +565,18 @@ class Game:
             text(self.screen, " • " + " | ".join(perks),
                  self.font_small, TEXT,
                  topleft=(right_panel.x + 30, y))
+            
+                # Historique récent de loot / effets
+        log_y = right_panel.bottom - 140
+        for msg, _ttl in reversed(self.event_log[-4:]):
+            text(
+                self.screen,
+                msg,
+                self.font_small,
+                TEXT,
+                topleft=(right_panel.x + 24, log_y)
+            )
+            log_y += 22
 
         # Message en bas du panneau droit
         text(
@@ -537,14 +609,19 @@ class Game:
                 rd = rm.definition if hasattr(rm, "definition") else rm
 
                 col = ROOM_COLORS.get(getattr(rd, "color", "blue"), (110, 110, 110))
-                inner = rect.inflate(-14, -14)
+                inner = rect.inflate(-8, -8)
                 draw_rounded(self.screen, col, inner, 12)
 
                 # --- image de la room au centre ---
                 img = self.room_images.get(rd.name)
                 if img is not None:
-                    img_rect = img.get_rect(center=inner.center)
-                    self.screen.blit(img, img_rect)
+                    orient = getattr(rm, "orientation", 0)
+                    rotated = pygame.transform.rotate(img, -90 * orient)   # change sign if needed
+                    target_w = inner.width - 4
+                    target_h = inner.height - 4
+                    thumb = pygame.transform.scale(rotated, (target_w, target_h))
+                    img_rect = thumb.get_rect(center=inner.center)
+                    self.screen.blit(thumb, img_rect)
                 else:
                     # fallback texte si aucune image
                     text(
@@ -555,28 +632,26 @@ class Game:
                         center=inner.center,
                     )
 
-                # portes (si tu as rm.placed_doors)
-                doors = getattr(rm, "placed_doors", (False, False, False, False))
-                up, right, down, left = doors
-                if up:
-                    pygame.draw.rect(self.screen, OUTLINE,
-                                     (inner.centerx - 10, inner.top - 2, 20, 8))
-                if right:
-                    pygame.draw.rect(self.screen, OUTLINE,
-                                     (inner.right - 2, inner.centery - 10, 8, 20))
-                if down:
-                    pygame.draw.rect(self.screen, OUTLINE,
-                                     (inner.centerx - 10, inner.bottom - 6, 20, 8))
-                if left:
-                    pygame.draw.rect(self.screen, OUTLINE,
-                                     (inner.left - 6, inner.centery - 10, 8, 20))
-
         # Joueur
+        # Joueur : surbrillance de la case courante
         pr = grid_to_px(self.player.r, self.player.c)
-        pygame.draw.circle(self.screen, ACCENT, pr.center, 14)
-        off = {"up": (0, -20), "right": (20, 0), "down": (0, 20), "left": (-20, 0)}[self.player.dir]
-        tip = (pr.centerx + off[0], pr.centery + off[1])
-        pygame.draw.line(self.screen, ACCENT, pr.center, tip, 3)
+
+        # halo autour de la case
+        highlight = pr.inflate(8, 8)
+        pygame.draw.rect(self.screen, ACCENT, highlight, width=4, border_radius=14)
+
+        # petit marqueur de direction sur le bord de la case
+        dir_offsets = {
+            "up":    (0, -pr.height // 2),
+            "right": (pr.width // 2, 0),
+            "down":  (0, pr.height // 2),
+            "left":  (-pr.width // 2, 0),
+        }
+        off = dir_offsets[self.player.dir]
+        center = pr.center
+        tip = (center[0] + off[0] * 0.6, center[1] + off[1] * 0.6)
+        pygame.draw.line(self.screen, ACCENT, center, tip, 3)
+
 
         # But
         gr, gc = self.manor.goal
@@ -601,6 +676,11 @@ class Game:
                 self.draw_ui.draw(self.screen)
             pygame.display.flip()
             self.clock.tick(FPS)
+
+    def push_event(self, msg: str, ttl: int = 240):
+        """Ajoute un message temporaire (≈4s à 60 FPS)."""
+        self.event_log.append((msg, ttl))
+
 
 
 if __name__ == "__main__":

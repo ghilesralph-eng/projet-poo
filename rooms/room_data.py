@@ -211,7 +211,7 @@ ROOM_CATALOGUE: List[RoomDef] = [
         image_path="images/den_icon.png",
         rarity=0,
         gem_cost=0,
-        doors=(True, True, False, True),
+        doors=(False, True, True, True),
         allowed_rows=(13, 24),
         objects_in_room={'dice': (2, 2), 'paw': (0, 1)},
     ),

@@ -41,14 +41,15 @@ def inside(r: int, c: int) -> bool:
 @dataclass
 class Room:
     """
-    Wrapper autour de RoomDef pour coller à main_game :
+    Wrapper autour de RoomDef :
     - definition : RoomDef
     - placed_doors : tuple(bool,bool,bool,bool)
+    - orientation : 0..3 (multiples de 90°)
     """
     definition: RoomDef
     placed_doors: Tuple[bool, bool, bool, bool]
+    orientation: int = 0
     looted: bool = False
-
 
 class Manor:
     """
@@ -89,13 +90,13 @@ class Manor:
             print("ERROR: 'Entrance Hall' not found in ROOM_CATALOGUE")
         else:
             r, c = START_POS
-            self.grid[r][c] = Room(entrance_hall, entrance_hall.doors)
+            self.grid[r][c] = Room(entrance_hall, entrance_hall.doors, orientation=0)
 
         if antechamber is None:
             print("ERROR: 'Antechamber' not found in ROOM_CATALOGUE")
         else:
             r, c = GOAL_POS
-            self.grid[r][c] = Room(antechamber, antechamber.doors)
+            self.grid[r][c] = Room(antechamber, antechamber.doors, orientation=0)
 
     # ------------------ ACCÈS SIMPLES ------------------
 
@@ -179,7 +180,15 @@ class Manor:
 
     # ------------------ PLACEMENT EFFECTIF ------------------
 
-    def place_room(self, room_def: RoomDef, r: int, c: int, from_dir: str) -> None:
+    def place_room(
+        self,
+        room_def: RoomDef,
+        r: int,
+        c: int,
+        from_dir: str,
+        orientation: Optional[int] = None,
+        doors: Optional[Tuple[bool, bool, bool, bool]] = None,
+    ) -> None:
         if not inside(r, c):
             return
 
@@ -187,21 +196,21 @@ class Manor:
         entry_dir_name = OPPOSITE_DIR[from_dir]
         entry_dir_idx = DOOR_INDEX[entry_dir_name]
 
-        # récupérer toutes les rotations possibles
-        options = self._valid_rotations_for(room_def, r, c, entry_dir_idx)
-        if not options:
-            # par sécurité : si plus valide (devrait être rare)
-            return
+        # si aucune orientation/portes n’est imposée, on choisit ici
+        if orientation is None or doors is None:
+            options = self._valid_rotations_for(room_def, r, c, entry_dir_idx)
+            if not options:
+                return
+            import random
+            orientation, doors = random.choice(options)
 
-        import random
-        orientation, doors = random.choice(options)
-
-        # créer la Room avec les portes finales
-        self.grid[r][c] = Room(room_def, tuple(doors))
+        # créer la Room avec les portes finales + orientation
+        self.grid[r][c] = Room(room_def, tuple(doors), orientation=orientation)
 
         # retirer de la pioche
         if room_def in self.deck:
             self.deck.remove(room_def)
+
 
 
     # ------------------ ROTATION HELPER ------------------
@@ -262,8 +271,15 @@ class Manor:
                 left_room = self.grid[r][c - 1]
                 if doors[3] != left_room.placed_doors[1]:
                     ok = False
+            
+            if not ok:
+                continue
 
-            if ok:
-                valid.append((orientation, doors))
+            # 4) éviter que la pièce soit un cul-de-sac (une seule porte)
+            # sauf si c'est la salle objectif
+            if sum(doors) <= 1 and room_def.name != "Antechamber":
+                continue
+
+            valid.append((orientation, doors))
 
         return valid
